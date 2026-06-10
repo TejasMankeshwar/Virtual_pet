@@ -74,7 +74,6 @@ class PetStateMachine: ObservableObject {
     
     func registerPetting(delta: CGFloat) {
         registerInteraction()
-        wakeUpIfNeeded()
         
         pettingAccumulator += delta
         
@@ -204,7 +203,6 @@ class PetStateMachine: ObservableObject {
     
     func startDragging() {
         registerInteraction()
-        wakeUpIfNeeded()
         DispatchQueue.main.async {
             self.currentState = .dragging
             self.typingHeat = 0.0
