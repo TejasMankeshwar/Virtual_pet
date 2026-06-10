@@ -24,15 +24,17 @@ struct SpriteView: View {
         let state = stateMachine.currentState
         
         let frame: [String]
-        switch state {
-        case .dragging:
-            frame = dragFrame
-        case .typing(let activePaw):
-            frame = (activePaw == .left) ? typeLeftFrame : typeRightFrame
-        case .hiding:
+        if stateMachine.isHiding {
             frame = peekRightFrame
-        default:
-            frame = baseFrame
+        } else {
+            switch state {
+            case .dragging:
+                frame = dragFrame
+            case .typing(let activePaw):
+                frame = (activePaw == .left) ? typeLeftFrame : typeRightFrame
+            default:
+                frame = baseFrame
+            }
         }
         
         let row = frame[y]
@@ -43,11 +45,12 @@ struct SpriteView: View {
             // Surprised tiny pupils when dragged
             if x == 5 && y == 10 { return .black }
             if x == 18 && y == 10 { return .black }
-        } else if case .hiding = state {
-            let leftEyeX = 14
-            let leftEyeY = 15
-            let rightEyeX = 14
-            let rightEyeY = 5
+        } else if stateMachine.isHiding {
+            let pupilOffset = getPupilOffset()
+            let leftEyeX = 14 + pupilOffset.x
+            let leftEyeY = 15 + pupilOffset.y
+            let rightEyeX = 14 + pupilOffset.x
+            let rightEyeY = 5 + pupilOffset.y
             
             if (x == leftEyeX || x == leftEyeX + 1) && (y == leftEyeY || y == leftEyeY + 1) {
                 return .black
@@ -107,7 +110,7 @@ struct SpriteView: View {
     
     func getPupilOffset() -> (x: Int, y: Int) {
         switch stateMachine.currentState {
-        case .idle, .looking(.center), .dragging, .hiding:
+        case .idle, .looking(.center), .dragging:
             return (0, 0)
         case .typing:
             return (0, 3) // Look down at keys, offset for "gamer lean"

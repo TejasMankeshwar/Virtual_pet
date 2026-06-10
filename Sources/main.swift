@@ -2,6 +2,38 @@ import Cocoa
 import SwiftUI
 import Combine
 
+struct MainContentView: View {
+    @ObservedObject var stateMachine: PetStateMachine
+    
+    var body: some View {
+        ZStack {
+            DraggableView(stateMachine: stateMachine)
+            
+            SpriteView(stateMachine: stateMachine)
+                .allowsHitTesting(false)
+                .scaleEffect(y: stateMachine.isBlipping ? 0.0 : 1.0)
+                
+            // Laser crushers that move to the center
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(height: 3)
+                    .shadow(color: .cyan, radius: 3)
+                    .offset(y: stateMachine.isBlipping ? 60 : 0)
+                
+                Spacer()
+                
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(height: 3)
+                    .shadow(color: .cyan, radius: 3)
+                    .offset(y: stateMachine.isBlipping ? -60 : 0)
+            }
+            .opacity(stateMachine.isBlipping ? 1.0 : 0.0)
+        }
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     var panel: ComnyangPanel!
     var stateMachine: PetStateMachine!
@@ -23,11 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let rect = NSRect(x: 500, y: 500, width: 120, height: 120)
         panel = ComnyangPanel(contentRect: rect)
         
-        let contentView = ZStack {
-            DraggableView(stateMachine: stateMachine)
-            SpriteView(stateMachine: stateMachine)
-                .allowsHitTesting(false)
-        }
+        let contentView = MainContentView(stateMachine: stateMachine)
         
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.frame = rect
@@ -38,18 +66,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         tracker = GlobalEventTracker(stateMachine: stateMachine, panel: panel)
         tracker.startTracking()
         
-        stateMachine.$currentState
+        stateMachine.$isHiding
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] state in
+            .sink { [weak self] hiding in
                 guard let self = self else { return }
-                if case .hiding = state {
-                    self.slidePanelToRight()
+                if hiding {
+                    self.blipTeleport(toRight: true)
                 } else {
                     // Check if it's clinging to the right edge and pull it back
                     if let screen = self.panel.screen ?? NSScreen.main {
                         if self.panel.frame.origin.x >= screen.visibleFrame.maxX - 25 {
-                            self.slidePanelBack()
+                            self.blipTeleport(toRight: false)
                         }
                     }
                 }
@@ -57,26 +85,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
     }
     
-    func slidePanelToRight() {
-        guard let screen = panel.screen ?? NSScreen.main else { return }
-        let targetX = screen.visibleFrame.maxX - panel.frame.width + 10 // +10 to hide a tiny bit of the right edge to make it look like clinging
-        var frame = panel.frame
-        frame.origin.x = targetX
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 1.0
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            self.panel.animator().setFrame(frame, display: true)
+    func blipTeleport(toRight: Bool) {
+        // Start blip compression
+        withAnimation(.timingCurve(0.7, 0, 0.3, 1, duration: 0.5)) {
+            stateMachine.isBlipping = true
         }
-    }
-    
-    func slidePanelBack() {
-        guard let screen = panel.screen ?? NSScreen.main else { return }
-        var frame = panel.frame
-        frame.origin.x = screen.visibleFrame.maxX - panel.frame.width - 50 // Move it 50 pixels away from the edge
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.5
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            self.panel.animator().setFrame(frame, display: true)
+        
+        // Wait exactly matching the animation duration for the compression to finish
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Teleport
+            guard let screen = self.panel.screen ?? NSScreen.main else { return }
+            var frame = self.panel.frame
+            if toRight {
+                frame.origin.x = screen.visibleFrame.maxX - self.panel.frame.width + 10
+            } else {
+                frame.origin.x = screen.visibleFrame.maxX - self.panel.frame.width - 50
+            }
+            // Move instantaneously
+            self.panel.setFrame(frame, display: true)
+            
+            // End blip (expand back)
+            withAnimation(.timingCurve(0.7, 0, 0.3, 1, duration: 0.5)) {
+                self.stateMachine.isBlipping = false
+            }
         }
     }
 }

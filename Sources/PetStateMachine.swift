@@ -4,14 +4,12 @@ enum PetState: Equatable {
     case idle
     case looking(Direction)
     case dragging
-    case hiding
     case typing(activePaw: PawSide)
     
     public static func == (lhs: PetState, rhs: PetState) -> Bool {
         switch (lhs, rhs) {
         case (.idle, .idle): return true
         case (.dragging, .dragging): return true
-        case (.hiding, .hiding): return true
         case (.typing(let lPaw), .typing(let rPaw)): return lPaw == rPaw
         case (.looking(let lDir), .looking(let rDir)): return lDir == rDir
         default: return false
@@ -29,6 +27,8 @@ enum Direction {
 
 class PetStateMachine: ObservableObject {
     @Published var currentState: PetState = .idle
+    @Published var isHiding: Bool = false
+    @Published var isBlipping: Bool = false
     @Published var typingHeat: Double = 0.0 // 0.0 to 1.0
     
     private var lastDirectionChange: Date = Date()
@@ -51,9 +51,10 @@ class PetStateMachine: ObservableObject {
     }
     
     func wakeUpIfNeeded() {
-        if case .hiding = currentState {
+        if isHiding {
             // Wake up if we were hiding
             DispatchQueue.main.async {
+                self.isHiding = false
                 self.currentState = .idle
             }
         }
@@ -66,9 +67,6 @@ class PetStateMachine: ObservableObject {
             return
         }
         if case .typing = currentState {
-            return
-        }
-        if case .hiding = currentState {
             return
         }
         
@@ -142,8 +140,8 @@ class PetStateMachine: ObservableObject {
         // Check for idle hiding
         if now.timeIntervalSince(lastInteractionTime) > 10.0 {
             DispatchQueue.main.async {
-                if self.currentState != .hiding && self.currentState != .dragging {
-                    self.currentState = .hiding
+                if !self.isHiding && self.currentState != .dragging {
+                    self.isHiding = true
                 }
             }
         }
