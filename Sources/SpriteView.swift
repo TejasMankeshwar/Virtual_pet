@@ -67,10 +67,10 @@ struct SpriteView: View {
             let rightEyeY = 16 + pupilOffset.y
             
             if (x == leftEyeX || x == leftEyeX + 1) && (y == leftEyeY || y == leftEyeY + 1) {
-                return .black
+                if char == "3" { return .black }
             }
             if (x == rightEyeX || x == rightEyeX + 1) && (y == rightEyeY || y == rightEyeY + 1) {
-                return .black
+                if char == "3" { return .black }
             }
         } else {
             let pupilOffset = getPupilOffset()
@@ -80,10 +80,10 @@ struct SpriteView: View {
             let rightEyeY = 8 + pupilOffset.y
             
             if (x == leftEyeX || x == leftEyeX + 1) && (y == leftEyeY || y == leftEyeY + 1) {
-                return .black
+                if char == "3" { return .black }
             }
             if (x == rightEyeX || x == rightEyeX + 1) && (y == rightEyeY || y == rightEyeY + 1) {
-                return .black
+                if char == "3" { return .black }
             }
         }
         
@@ -136,17 +136,17 @@ struct SpriteView: View {
         case .idle, .looking(.center), .dragging, .petting, .stretching:
             return (0, 0)
         case .typing:
-            return (0, 3) 
+            return (0, 1) 
         case .looking(let dir):
             switch dir {
-            case .up: return (0, -2)
-            case .down: return (0, 2)
-            case .left: return (-2, 0)
-            case .right: return (2, 0)
-            case .upLeft: return (-2, -2)
-            case .upRight: return (2, -2)
-            case .downLeft: return (-2, 2)
-            case .downRight: return (2, 2)
+            case .up: return (0, -1)
+            case .down: return (0, 1)
+            case .left: return (-1, 0)
+            case .right: return (1, 0)
+            case .upLeft: return (-1, -1)
+            case .upRight: return (1, -1)
+            case .downLeft: return (-1, 1)
+            case .downRight: return (1, 1)
             case .center: return (0, 0)
             }
         }
