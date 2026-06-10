@@ -23,8 +23,9 @@ enum StretchInterval: Equatable {
     }
 }
 
-enum PawSide {
-    case left, right
+enum PawSide: Equatable {
+    case left
+    case right
 }
 
 enum Direction {
@@ -37,7 +38,7 @@ class PetStateMachine: ObservableObject {
             let isStretching = (currentState == .stretching || currentState == .stretchReminder)
             let wasStretching = (oldValue == .stretching || oldValue == .stretchReminder)
             if isStretching != wasStretching {
-                withAnimation(.easeInOut(duration: 0.8)) {
+                withAnimation(.easeInOut(duration: 0.3)) {
                     stretchColorAmount = isStretching ? 1.0 : 0.0
                 }
             }
@@ -49,6 +50,7 @@ class PetStateMachine: ObservableObject {
     
     @Published var stretchColorAmount: Double = 0.0
     @Published var wagTick: Bool = false
+    @Published var lastTypedPaw: PawSide = .left
     
     @Published var purrMessage: String = ""
     @Published var showPurrMessage: Bool = false
@@ -70,10 +72,12 @@ class PetStateMachine: ObservableObject {
     private var keystrokes: [Date] = []
     private var stateTimer: Timer?
     private var pettingTimer: Timer?
-    private var lastTypedPaw: PawSide = .right
     private var lastInteractionTime: Date = Date()
     private var pettingAccumulator: CGFloat = 0
     private var pettingStartTime: Date?
+    
+    private var isCurrentlyTyping: Bool = false
+    private var typingTimer: Timer?
     
     private var wagTimer: Timer?
     
@@ -262,13 +266,21 @@ class PetStateMachine: ObservableObject {
         lastTypedPaw = (lastTypedPaw == .left) ? .right : .left
         
         DispatchQueue.main.async {
+            self.isCurrentlyTyping = true
+            self.typingTimer?.invalidate()
+            self.typingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.isCurrentlyTyping = false
+                    self?.updateTypingState()
+                }
+            }
             self.updateTypingHeat()
         }
     }
     
     private func updateTypingHeat() {
         let now = Date()
-        keystrokes = keystrokes.filter { now.timeIntervalSince($0) <= 5.0 }
+        keystrokes = keystrokes.filter { now.timeIntervalSince($0) <= 3.0 }
         
         DispatchQueue.main.async {
             self.recalculateHeat()
@@ -285,22 +297,36 @@ class PetStateMachine: ObservableObject {
     }
     
     private func recalculateHeat() {
-        let kps = Double(keystrokes.count) / 5.0
+        let kps = Double(keystrokes.count) / 3.0
         
-        if kps < 4.16 {
-            typingHeat = 0.0
-        } else if kps >= 8.33 {
-            typingHeat = 1.0
+        let minKps = 1.25 // 15 WPM
+        let maxKps = 5.41 // 65 WPM
+        
+        let newHeat: Double
+        if kps < minKps {
+            newHeat = 0.0
+        } else if kps >= maxKps {
+            newHeat = 1.0
         } else {
-            typingHeat = (kps - 4.16) / (8.33 - 4.16)
+            newHeat = (kps - minKps) / (maxKps - minKps)
         }
         
-        if typingHeat > 0 {
-            if currentState != .stretchReminder && currentState != .dragging {
+        withAnimation(.linear(duration: 0.2)) {
+            typingHeat = newHeat
+        }
+        
+        updateTypingState()
+    }
+    
+    private func updateTypingState() {
+        if isCurrentlyTyping {
+            if currentState != .stretchReminder && currentState != .dragging && currentState != .petting {
                 currentState = .typing(heat: typingHeat)
             }
-        } else if currentState != .stretchReminder && currentState != .dragging {
-            currentState = .idle
+        } else {
+            if case .typing = currentState {
+                currentState = .idle
+            }
         }
     }
 }

@@ -40,7 +40,7 @@ struct SpriteView: View {
             case .dragging:
                 frame = dragFrame
             case .typing:
-                frame = (Int(Date().timeIntervalSince1970 * 8) % 2 == 0) ? typeLeftFrame : typeRightFrame
+                frame = (stateMachine.lastTypedPaw == .left) ? typeLeftFrame : typeRightFrame
             case .stretching:
                 frame = stateMachine.wagTick ? stretchWagLeftFrame : stretchWagRightFrame
             case .stretchReminder:
