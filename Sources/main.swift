@@ -13,6 +13,9 @@ struct MainContentView: View {
                 .allowsHitTesting(false)
                 .scaleEffect(y: stateMachine.isBlipping ? 0.0 : 1.0)
                 
+            HeartParticlesView(stateMachine: stateMachine)
+                .offset(y: -32) // Position above the cat's head
+                
             // Laser crushers that move to the center
             VStack(spacing: 0) {
                 Rectangle()

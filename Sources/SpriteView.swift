@@ -45,6 +45,14 @@ struct SpriteView: View {
             // Surprised tiny pupils when dragged
             if x == 5 && y == 10 { return .black }
             if x == 18 && y == 10 { return .black }
+        } else if case .petting = state {
+            // Closed happy eyes ^ ^
+            let leftEye = [(4,10), (5,9), (6,10)]
+            let rightEye = [(17,10), (18,9), (19,10)]
+            if leftEye.contains(where: { $0.0 == x && $0.1 == y }) { return getPinkPartColor() }
+            if rightEye.contains(where: { $0.0 == x && $0.1 == y }) { return getPinkPartColor() }
+            // Replace the rest of the white eyeball with fur color
+            if char == "3" { return getFurColor() }
         } else if stateMachine.isHiding {
             let pupilOffset = getPupilOffset()
             let leftEyeX = 14 + pupilOffset.x
@@ -110,7 +118,7 @@ struct SpriteView: View {
     
     func getPupilOffset() -> (x: Int, y: Int) {
         switch stateMachine.currentState {
-        case .idle, .looking(.center), .dragging:
+        case .idle, .looking(.center), .dragging, .petting:
             return (0, 0)
         case .typing:
             return (0, 3) // Look down at keys, offset for "gamer lean"

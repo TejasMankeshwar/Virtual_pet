@@ -5,11 +5,13 @@ enum PetState: Equatable {
     case looking(Direction)
     case dragging
     case typing(activePaw: PawSide)
+    case petting
     
     public static func == (lhs: PetState, rhs: PetState) -> Bool {
         switch (lhs, rhs) {
         case (.idle, .idle): return true
         case (.dragging, .dragging): return true
+        case (.petting, .petting): return true
         case (.typing(let lPaw), .typing(let rPaw)): return lPaw == rPaw
         case (.looking(let lDir), .looking(let rDir)): return lDir == rDir
         default: return false
@@ -37,8 +39,11 @@ class PetStateMachine: ObservableObject {
     private var keystrokes: [Date] = []
     private var idleTimer: Timer?
     private var updateTimer: Timer?
+    private var pettingTimer: Timer?
     private var lastTypedPaw: PawSide = .right
     private var lastInteractionTime: Date = Date()
+    private var pettingAccumulator: CGFloat = 0
+    private var pettingStartTime: Date?
     
     init() {
         updateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -48,6 +53,48 @@ class PetStateMachine: ObservableObject {
     
     func registerInteraction() {
         lastInteractionTime = Date()
+    }
+    
+    func registerPetting(delta: CGFloat) {
+        registerInteraction()
+        wakeUpIfNeeded()
+        
+        pettingAccumulator += delta
+        
+        // Reset/schedule the petting timer on every movement to clear accumulator/state/start time if they stop
+        pettingTimer?.invalidate()
+        pettingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.stopPetting()
+            }
+        }
+        
+        // If petting start time hasn't been set, set it now
+        if pettingStartTime == nil {
+            pettingStartTime = Date()
+        }
+        
+        // Require at least 1.2 seconds of continuous movement to trigger petting
+        if let startTime = pettingStartTime, Date().timeIntervalSince(startTime) >= 1.2 {
+            // Ensure some minimal movement occurred over this period (e.g. accumulator > 30)
+            if pettingAccumulator > 30 {
+                DispatchQueue.main.async {
+                    if self.currentState != .dragging && self.currentState != .petting {
+                        // Don't override typing immediately, but if not typing, pet it!
+                        if case .typing = self.currentState { return }
+                        self.currentState = .petting
+                    }
+                }
+            }
+        }
+    }
+    
+    func stopPetting() {
+        pettingAccumulator = 0
+        pettingStartTime = nil
+        if case .petting = currentState {
+            currentState = .idle
+        }
     }
     
     func wakeUpIfNeeded() {
@@ -67,6 +114,9 @@ class PetStateMachine: ObservableObject {
             return
         }
         if case .typing = currentState {
+            return
+        }
+        if case .petting = currentState {
             return
         }
         
@@ -138,7 +188,7 @@ class PetStateMachine: ObservableObject {
         }
         
         // Check for idle hiding
-        if now.timeIntervalSince(lastInteractionTime) > 10.0 {
+        if now.timeIntervalSince(lastInteractionTime) > 15.0 {
             DispatchQueue.main.async {
                 if !self.isHiding && self.currentState != .dragging {
                     self.isHiding = true

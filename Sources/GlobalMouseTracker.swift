@@ -9,6 +9,7 @@ class GlobalEventTracker {
     private var globalLeftMouseUpMonitor: Any?
     private var globalKeyboardTimer: Timer?
     private var lastKeyCount: UInt32 = 0
+    private var lastMouseLoc: NSPoint?
     
     init(stateMachine: PetStateMachine, panel: NSPanel) {
         self.stateMachine = stateMachine
@@ -94,9 +95,21 @@ class GlobalEventTracker {
         let dy = mouseLoc.y - center.y
         
         let distance = sqrt(dx*dx + dy*dy)
+        
+        var delta: CGFloat = 0
+        if let last = lastMouseLoc {
+            delta = sqrt(pow(mouseLoc.x - last.x, 2) + pow(mouseLoc.y - last.y, 2))
+        }
+        lastMouseLoc = mouseLoc
+        
         if distance < 60 {
+            if delta > 0 {
+                stateMachine.registerPetting(delta: delta)
+            }
             stateMachine.updateDirection(to: .center)
             return
+        } else {
+            stateMachine.stopPetting()
         }
         
         let angle = atan2(dy, dx)
