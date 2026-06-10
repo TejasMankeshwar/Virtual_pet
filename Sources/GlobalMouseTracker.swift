@@ -1,10 +1,14 @@
 import Cocoa
 
-class GlobalMouseTracker {
+class GlobalEventTracker {
     private let stateMachine: PetStateMachine
     private weak var panel: NSPanel?
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
+    private var globalMouseMonitor: Any?
+    private var localMouseMonitor: Any?
+    private var localKeyboardMonitor: Any?
+    private var globalLeftMouseUpMonitor: Any?
+    private var globalKeyboardTimer: Timer?
+    private var lastKeyCount: UInt32 = 0
     
     init(stateMachine: PetStateMachine, panel: NSPanel) {
         self.stateMachine = stateMachine
@@ -16,34 +20,72 @@ class GlobalMouseTracker {
         let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary)
         
         if !accessEnabled {
-            print("Accessibility access not granted. Global mouse tracking requires permission.")
+            print("Accessibility access not granted. Global event tracking (mouse + keyboard) requires permission.")
+        } else {
+            print("Accessibility access checked: Granted.")
         }
         
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+        // Mouse tracking
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             self?.handleMouseMoved(event: event)
         }
         
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
             self?.handleMouseMoved(event: event)
             return event
+        }
+        
+        // Keyboard tracking using global HID counters (bulletproof, no permissions needed!)
+        print("Starting bulletproof keyboard counter...")
+        lastKeyCount = CGEventSource.counterForEventType(.combinedSessionState, eventType: .keyDown)
+        globalKeyboardTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            let currentCount = CGEventSource.counterForEventType(.combinedSessionState, eventType: .keyDown)
+            if currentCount > self.lastKeyCount {
+                let diff = currentCount - self.lastKeyCount
+                for _ in 0..<diff {
+                    self.stateMachine.registerKeystroke()
+                }
+                self.lastKeyCount = currentCount
+            }
+        }
+        
+        localKeyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            print("Local key down event captured.")
+            self?.stateMachine.registerKeystroke()
+            return event
+        }
+        
+        globalLeftMouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
+            self?.stateMachine.stopDragging()
         }
     }
     
     func stopTracking() {
-        if let monitor = globalMonitor {
+        if let monitor = globalMouseMonitor {
             NSEvent.removeMonitor(monitor)
-            globalMonitor = nil
+            globalMouseMonitor = nil
         }
-        if let monitor = localMonitor {
+        if let monitor = localMouseMonitor {
             NSEvent.removeMonitor(monitor)
-            localMonitor = nil
+            localMouseMonitor = nil
+        }
+        globalKeyboardTimer?.invalidate()
+        globalKeyboardTimer = nil
+        
+        if let monitor = localKeyboardMonitor {
+            NSEvent.removeMonitor(monitor)
+            localKeyboardMonitor = nil
+        }
+        if let monitor = globalLeftMouseUpMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalLeftMouseUpMonitor = nil
         }
     }
     
     private func handleMouseMoved(event: NSEvent) {
         guard let panel = panel else { return }
         
-        // NSEvent.mouseLocation is in global screen coordinates
         let mouseLoc = NSEvent.mouseLocation
         let panelFrame = panel.frame
         let center = CGPoint(x: panelFrame.midX, y: panelFrame.midY)
@@ -64,7 +106,6 @@ class GlobalMouseTracker {
     
     private func angleToDirection(angle: CGFloat) -> Direction {
         let pi = CGFloat.pi
-        // Map angle from [-pi, pi] to octant
         let octant = round(8 * angle / (2 * pi) + 8).truncatingRemainder(dividingBy: 8)
         
         switch Int(octant) {

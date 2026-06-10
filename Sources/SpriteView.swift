@@ -21,14 +21,27 @@ struct SpriteView: View {
     }
     
     func colorFor(x: Int, y: Int) -> Color {
-        let isDragging = (stateMachine.currentState == .dragging)
-        let frame = isDragging ? dragFrame : baseFrame
+        let state = stateMachine.currentState
+        
+        let frame: [String]
+        switch state {
+        case .dragging:
+            frame = dragFrame
+        case .typing(let activePaw):
+            frame = (activePaw == .left) ? typeLeftFrame : typeRightFrame
+        default:
+            frame = baseFrame
+        }
         
         let row = frame[y]
         let char = row[row.index(row.startIndex, offsetBy: x)]
         
-        // Render pupils dynamically over the white space
-        if !isDragging {
+        // Render pupils dynamically over the white space (character '3')
+        if case .dragging = state {
+            // Surprised eyes when dragged
+            if x == 4 && y == 11 { return .black }
+            if x == 19 && y == 11 { return .black }
+        } else {
             let pupilOffset = getPupilOffset()
             let leftEyeX = 4 + pupilOffset.x
             let leftEyeY = 10 + pupilOffset.y
@@ -41,19 +54,29 @@ struct SpriteView: View {
             if (x == rightEyeX || x == rightEyeX + 1) && (y == rightEyeY || y == rightEyeY + 1) {
                 return .black
             }
-        } else {
-            // Surprised eyes when dragging! Small pupils.
-            if x == 4 && y == 11 { return .black }
-            if x == 19 && y == 11 { return .black }
         }
         
         switch char {
-        case "1": return Color(white: 0.15) // Blackish fur
-        case "2": return Color(white: 0.25) // Highlight
-        case "5": return .pink // Nose/Ears
-        case "3": return .white // Sclera
-        default: return .clear
+        case "1":
+            return getFurColor()
+        case "5":
+            return .pink
+        case "3":
+            return .white
+        case "k":
+            return Color(white: 0.5) // Gray buttons/keys
+        default:
+            return .clear
         }
+    }
+    
+    func getFurColor() -> Color {
+        let heat = stateMachine.typingHeat
+        // Lerp from dark charcoal Color(white: 0.15) to angry red Color(r: 0.7, g: 0.1, b: 0.1)
+        let r = 0.15 + (0.7 - 0.15) * heat
+        let g = 0.15 + (0.1 - 0.15) * heat
+        let b = 0.15 + (0.1 - 0.15) * heat
+        return Color(red: r, green: g, blue: b)
     }
     
     func getPupilOffset() -> (x: Int, y: Int) {
@@ -62,6 +85,8 @@ struct SpriteView: View {
             return (0, 0)
         case .dragging:
             return (0, 0)
+        case .typing:
+            return (0, 2) // Look down at keys!
         case .looking(let dir):
             switch dir {
             case .up: return (0, -2)
@@ -77,6 +102,7 @@ struct SpriteView: View {
         }
     }
     
+    // Default stand frame: no buttons visible on floor!
     let baseFrame = [
         "                        ",
         "   11              11   ",
@@ -101,6 +127,60 @@ struct SpriteView: View {
         "    111          111    ",
         "    111          111    ",
         "   1111          1111   ",
+        "                        "
+    ]
+    
+    let typeLeftFrame = [
+        "                        ",
+        "   11              11   ",
+        "  1551            1551  ",
+        "  11111111111111111111  ",
+        " 1111111111111111111111 ",
+        " 1111111111111111111111 ",
+        "111111111111111111111111",
+        "111111111111111111111111",
+        "111333311111111113333111",
+        "113333331111111133333311",
+        "113333331115511133333311",
+        "113333331111111133333311",
+        "113333331111111133333311",
+        "111333311111111113333111",
+        "111111111111111111111111",
+        " 1111111111111111111111 ",
+        " 1111111111111111111111 ",
+        "  11111111111111111111  ",
+        "   111111111111111111   ",
+        "    111          111    ",
+        "   111           111    ",
+        " 11111           111 kk ",
+        "111111           1111kk ",
+        "                        "
+    ]
+    
+    let typeRightFrame = [
+        "                        ",
+        "   11              11   ",
+        "  1551            1551  ",
+        "  11111111111111111111  ",
+        " 1111111111111111111111 ",
+        " 1111111111111111111111 ",
+        "111111111111111111111111",
+        "111111111111111111111111",
+        "111333311111111113333111",
+        "113333331111111133333311",
+        "113333331115511133333311",
+        "113333331111111133333311",
+        "113333331111111133333311",
+        "111333311111111113333111",
+        "111111111111111111111111",
+        " 1111111111111111111111 ",
+        " 1111111111111111111111 ",
+        "  11111111111111111111  ",
+        "   111111111111111111   ",
+        "    111          111    ",
+        "    111           111   ",
+        " kk 111           11111 ",
+        " kk1111           111111",
         "                        "
     ]
     
@@ -130,15 +210,4 @@ struct SpriteView: View {
         "                        ",
         "                        "
     ]
-}
-
-extension PetState: Equatable {
-    public static func == (lhs: PetState, rhs: PetState) -> Bool {
-        switch (lhs, rhs) {
-        case (.idle, .idle): return true
-        case (.dragging, .dragging): return true
-        case (.looking(let lDir), .looking(let rDir)): return lDir == rDir
-        default: return false
-        }
-    }
 }

@@ -4,9 +4,18 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate {
     var panel: ComnyangPanel!
     var stateMachine: PetStateMachine!
-    var tracker: GlobalMouseTracker!
+    var tracker: GlobalEventTracker!
+    var statusItem: NSStatusItem!
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Setup Menu Bar Item
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = statusItem.button {
+            button.title = "🐱"
+        }
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Quit Comnyang", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        statusItem.menu = menu
         stateMachine = PetStateMachine()
         
         let rect = NSRect(x: 500, y: 500, width: 120, height: 120)
@@ -24,7 +33,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         panel.makeKeyAndOrderFront(nil)
         
-        tracker = GlobalMouseTracker(stateMachine: stateMachine, panel: panel)
+        tracker = GlobalEventTracker(stateMachine: stateMachine, panel: panel)
         tracker.startTracking()
     }
 }
