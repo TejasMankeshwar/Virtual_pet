@@ -55,6 +55,9 @@ class PetStateMachine: ObservableObject {
     @Published var purrMessage: String = ""
     @Published var showPurrMessage: Bool = false
     
+    private var savedPurrMessage: String = ""
+    private var savedShowPurrMessage: Bool = false
+    
     @Published var isPomodoroActive: Bool = false
     @Published var pomodoroTimeRemaining: Int = 0
     private var pomodoroDuration: Int = 25 * 60
@@ -175,17 +178,18 @@ class PetStateMachine: ObservableObject {
     }
     
     private func updateStretchReminder() {
-        guard stretchInterval != .off else { return }
-        guard currentState != .stretchReminder else { return }
+        if stretchInterval == .off { return }
         
         if timeUntilStretch > 0 {
             timeUntilStretch -= 1
-        } else if timeUntilStretch == 0 {
-            DispatchQueue.main.async {
+        } else {
+            if currentState != .stretchReminder {
+                savedPurrMessage = purrMessage
+                savedShowPurrMessage = showPurrMessage
                 self.wakeUpIfNeeded()
-                self.currentState = .stretchReminder
-                self.purrMessage = "Time to stretch! 🐾"
-                self.showPurrMessage = true
+                currentState = .stretchReminder
+                purrMessage = "Time to stretch! 🐾"
+                showPurrMessage = true
             }
         }
     }
@@ -196,8 +200,8 @@ class PetStateMachine: ObservableObject {
             self.timeUntilStretch = self.stretchInterval.rawValue
             if wasStretchReminder {
                 self.currentState = .idle
-                self.purrMessage = ""
-                self.showPurrMessage = false
+                self.purrMessage = self.savedPurrMessage
+                self.showPurrMessage = self.savedShowPurrMessage
             }
         }
     }
@@ -300,7 +304,7 @@ class PetStateMachine: ObservableObject {
         let kps = Double(keystrokes.count) / 3.0
         
         let minKps = 1.25 // 15 WPM
-        let maxKps = 5.41 // 65 WPM
+        let maxKps = 5.83 // 70 WPM
         
         let newHeat: Double
         if kps < minKps {
