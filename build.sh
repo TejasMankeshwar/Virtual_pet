@@ -14,6 +14,11 @@ mkdir -p "$RESOURCES_DIR"
 # Copy Info.plist
 cp Info.plist "$APP_BUNDLE/Contents/"
 
+# Copy AppIcon.icns if it exists
+if [ -f "AppIcon.icns" ]; then
+    cp AppIcon.icns "$RESOURCES_DIR/"
+fi
+
 # Compile Swift files
 swiftc -o "$MACOS_DIR/$APP_NAME" Sources/*.swift -target arm64-apple-macos13.0
 

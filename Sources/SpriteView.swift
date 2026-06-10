@@ -32,6 +32,8 @@ struct SpriteView: View {
                 frame = dragFrame
             case .typing(let activePaw):
                 frame = (activePaw == .left) ? typeLeftFrame : typeRightFrame
+            case .stretching:
+                frame = stretchFrame
             default:
                 frame = baseFrame
             }
@@ -53,6 +55,14 @@ struct SpriteView: View {
             if rightEye.contains(where: { $0.0 == x && $0.1 == y }) { return getPinkPartColor() }
             // Replace the rest of the white eyeball with fur color
             if char == "3" { return getFurColor() }
+        } else if case .stretching = state {
+            // Closed eyes ^ ^ for stretching
+            let leftEye = [(4,10), (5,9), (6,10)]
+            let rightEye = [(17,10), (18,9), (19,10)]
+            if leftEye.contains(where: { $0.0 == x && $0.1 == y }) { return .black }
+            if rightEye.contains(where: { $0.0 == x && $0.1 == y }) { return .black }
+            // Replace the rest of the white eyeball with fur color
+            if char == "3" { return getStretchColor(y: y) }
         } else if stateMachine.isHiding {
             let pupilOffset = getPupilOffset()
             let leftEyeX = 14 + pupilOffset.x
@@ -80,10 +90,17 @@ struct SpriteView: View {
                 return .black
             }
         }
+        
         switch char {
         case "1":
+            if case .stretching = state {
+                return getStretchColor(y: y)
+            }
             return getFurColor()
         case "5":
+            if case .stretching = state {
+                return getStretchColor(y: y) // Make ears match the stretch color
+            }
             return getPinkPartColor()
         case "3":
             return .white
@@ -116,9 +133,18 @@ struct SpriteView: View {
         return Color(red: r, green: g, blue: b)
     }
     
+    func getStretchColor(y: Int) -> Color {
+        // Orange to yellow gradient
+        let ratio = Double(y) / 23.0
+        let r = 1.0
+        let g = 1.0 - (0.5 * ratio)
+        let b = 0.0
+        return Color(red: r, green: g, blue: b)
+    }
+    
     func getPupilOffset() -> (x: Int, y: Int) {
         switch stateMachine.currentState {
-        case .idle, .looking(.center), .dragging, .petting:
+        case .idle, .looking(.center), .dragging, .petting, .stretching:
             return (0, 0)
         case .typing:
             return (0, 3) // Look down at keys, offset for "gamer lean"
@@ -241,6 +267,33 @@ struct SpriteView: View {
         " 333                333 ",
         " 333                333 ",
         "                        ",
+        "                        ",
+        "                        "
+    ]
+    
+    let stretchFrame = [
+        "                        ",
+        "   11              11   ",
+        "  1551            1551  ",
+        " 1111111111111111111111 ",
+        "111111111111111111111111",
+        "111111111111111111111111",
+        "111111111111111111111111",
+        "111111111111111111111111",
+        "111333311111111113333111",
+        "113333331111111133333311",
+        "113333331115511133333311",
+        "113333331111111133333311",
+        "113333331111111133333311",
+        "111333311111111113333111",
+        "111111111111111111111111",
+        " 1111111111111111111111 ",
+        "  11111111111111111111  ",
+        " 1111111111111111111111 ",
+        "33311              11333",
+        "3331                1333",
+        "3331                1333",
+        " 333                333 ",
         "                        ",
         "                        "
     ]
