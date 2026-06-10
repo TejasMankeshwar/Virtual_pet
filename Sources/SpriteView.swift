@@ -38,9 +38,9 @@ struct SpriteView: View {
         
         // Render pupils dynamically over the white space (character '3')
         if case .dragging = state {
-            // Surprised eyes when dragged
-            if x == 4 && y == 11 { return .black }
-            if x == 19 && y == 11 { return .black }
+            // Surprised tiny pupils when dragged
+            if x == 5 && y == 10 { return .black }
+            if x == 18 && y == 10 { return .black }
         } else {
             let pupilOffset = getPupilOffset()
             let leftEyeX = 4 + pupilOffset.x
@@ -55,27 +55,39 @@ struct SpriteView: View {
                 return .black
             }
         }
-        
         switch char {
         case "1":
             return getFurColor()
         case "5":
-            return .pink
+            return getPinkPartColor()
         case "3":
             return .white
         case "k":
-            return Color(white: 0.5) // Gray buttons/keys
+            return Color(white: 0.5) // Button base (medium grey)
+        case "b":
+            return Color(white: 0.8) // Unpressed button top (greyish white)
+        case "l":
+            return Color(white: 1.0) // Pressed button top (bright white)
         default:
             return .clear
         }
     }
     
+    func getPinkPartColor() -> Color {
+        let heat = stateMachine.typingHeat
+        // Lerp from Pink to the unheated fur color (dark charcoal) when heated
+        let r = 1.0 + (0.15 - 1.0) * heat
+        let g = 0.4 + (0.15 - 0.4) * heat
+        let b = 0.6 + (0.15 - 0.6) * heat
+        return Color(red: r, green: g, blue: b)
+    }
+    
     func getFurColor() -> Color {
         let heat = stateMachine.typingHeat
-        // Lerp from dark charcoal Color(white: 0.15) to angry red Color(r: 0.7, g: 0.1, b: 0.1)
-        let r = 0.15 + (0.7 - 0.15) * heat
-        let g = 0.15 + (0.1 - 0.15) * heat
-        let b = 0.15 + (0.1 - 0.15) * heat
+        // Lerp from dark charcoal Color(white: 0.15) to #FA2A55 (r: 0.98, g: 0.165, b: 0.333)
+        let r = 0.15 + (0.98 - 0.15) * heat
+        let g = 0.15 + (0.165 - 0.15) * heat
+        let b = 0.15 + (0.333 - 0.15) * heat
         return Color(red: r, green: g, blue: b)
     }
     
@@ -86,7 +98,7 @@ struct SpriteView: View {
         case .dragging:
             return (0, 0)
         case .typing:
-            return (0, 2) // Look down at keys!
+            return (0, 3) // Look down at keys, offset for "gamer lean"
         case .looking(let dir):
             switch dir {
             case .up: return (0, -2)
@@ -102,14 +114,13 @@ struct SpriteView: View {
         }
     }
     
-    // Default stand frame: no buttons visible on floor!
     let baseFrame = [
         "                        ",
         "   11              11   ",
         "  1551            1551  ",
-        "  11111111111111111111  ",
         " 1111111111111111111111 ",
-        " 1111111111111111111111 ",
+        "111111111111111111111111",
+        "111111111111111111111111",
         "111111111111111111111111",
         "111111111111111111111111",
         "111333311111111113333111",
@@ -120,23 +131,24 @@ struct SpriteView: View {
         "111333311111111113333111",
         "111111111111111111111111",
         " 1111111111111111111111 ",
-        " 1111111111111111111111 ",
         "  11111111111111111111  ",
         "   111111111111111111   ",
-        "    111          111    ",
-        "    111          111    ",
-        "    111          111    ",
-        "   1111          1111   ",
+        "     111          111   ",
+        "     111          111   ",
+        "    33333        33333  ",
+        "    33333        33333  ",
+        "                        ",
         "                        "
     ]
     
     let typeLeftFrame = [
         "                        ",
+        "                        ",
         "   11              11   ",
         "  1551            1551  ",
-        "  11111111111111111111  ",
         " 1111111111111111111111 ",
-        " 1111111111111111111111 ",
+        "111111111111111111111111",
+        "111111111111111111111111",
         "111111111111111111111111",
         "111111111111111111111111",
         "111333311111111113333111",
@@ -147,23 +159,23 @@ struct SpriteView: View {
         "111333311111111113333111",
         "111111111111111111111111",
         " 1111111111111111111111 ",
-        " 1111111111111111111111 ",
         "  11111111111111111111  ",
         "   111111111111111111   ",
         "    111          111    ",
-        "   111           111    ",
-        " 11111           111 kk ",
-        "111111           1111kk ",
-        "                        "
+        "    111         33333   ",
+        "   33333       bbbbb    ",
+        "  klllllk     kkkkkkk   ",
+        "  kkkkkkk     kkkkkkk   "
     ]
     
     let typeRightFrame = [
         "                        ",
+        "                        ",
         "   11              11   ",
         "  1551            1551  ",
-        "  11111111111111111111  ",
         " 1111111111111111111111 ",
-        " 1111111111111111111111 ",
+        "111111111111111111111111",
+        "111111111111111111111111",
         "111111111111111111111111",
         "111111111111111111111111",
         "111333311111111113333111",
@@ -173,21 +185,20 @@ struct SpriteView: View {
         "113333331111111133333311",
         "111333311111111113333111",
         "111111111111111111111111",
-        " 1111111111111111111111 ",
         " 1111111111111111111111 ",
         "  11111111111111111111  ",
         "   111111111111111111   ",
         "    111          111    ",
-        "    111           111   ",
-        " kk 111           11111 ",
-        " kk1111           111111",
-        "                        "
+        "   33333         111    ",
+        "   bbbbb       33333    ",
+        "  kkkkkkk     klllllk   ",
+        "  kkkkkkk     kkkkkkk   "
     ]
     
     let dragFrame = [
         "                        ",
-        "  11                11  ",
-        " 1551              1551 ",
+        "   11              11   ",
+        "  1551            1551  ",
         " 1111111111111111111111 ",
         "111111111111111111111111",
         "111111111111111111111111",
@@ -201,11 +212,11 @@ struct SpriteView: View {
         "111333311111111113333111",
         "111111111111111111111111",
         " 1111111111111111111111 ",
+        "  11111111111111111111  ",
         " 1111111111111111111111 ",
-        "111111111111111111111111",
-        "111111111111111111111111",
-        " 1111              1111 ",
-        "  11                11  ",
+        " 111                111 ",
+        " 333                333 ",
+        " 333                333 ",
         "                        ",
         "                        ",
         "                        "

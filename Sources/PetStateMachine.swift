@@ -105,7 +105,8 @@ class PetStateMachine: ObservableObject {
     private func decayHeatAndVerifyState() {
         let now = Date()
         let beforeCount = keystrokes.count
-        keystrokes = keystrokes.filter { now.timeIntervalSince($0) <= 2.0 }
+        // 5 second sliding window
+        keystrokes = keystrokes.filter { now.timeIntervalSince($0) <= 5.0 }
         
         if beforeCount != keystrokes.count {
             DispatchQueue.main.async {
@@ -115,14 +116,17 @@ class PetStateMachine: ObservableObject {
     }
     
     private func recalculateHeat() {
-        let kps = Double(keystrokes.count) / 2.0
+        // Average KPS over the 5 second window
+        let kps = Double(keystrokes.count) / 5.0
         
-        if kps < 0.5 {
+        // 70 WPM is ~5.8 keystrokes per second. 
+        // We start warming up at 2.0 KPS, and reach max heat at 6.0 KPS.
+        if kps < 2.0 {
             typingHeat = 0.0
-        } else if kps >= 4.0 {
+        } else if kps >= 6.0 {
             typingHeat = 1.0
         } else {
-            typingHeat = (kps - 0.5) / 3.5
+            typingHeat = (kps - 2.0) / 4.0
         }
     }
 }
