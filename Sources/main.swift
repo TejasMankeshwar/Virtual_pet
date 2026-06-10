@@ -77,6 +77,15 @@ struct MainContentView: View {
                 promptForPurrMessage()
             }
             Divider()
+            Button("Set Stretch Reminder...") {
+                promptForStretchReminder()
+            }
+            if stateMachine.stretchInterval != .off {
+                Button("Turn Off Stretch Reminder") {
+                    stateMachine.stretchInterval = .off
+                }
+            }
+            Divider()
             if stateMachine.isPomodoroActive {
                 Button("Stop Pomodoro Timer") {
                     stateMachine.stopPomodoro()
@@ -114,6 +123,44 @@ struct MainContentView: View {
             let text = inputTextField.stringValue
             stateMachine.purrMessage = String(text.prefix(20))
             stateMachine.showPurrMessage = true
+        }
+    }
+    
+    func promptForStretchReminder() {
+        let alert = NSAlert()
+        alert.messageText = "Set Stretch Reminder"
+        alert.informativeText = "Enter interval in MM:SS format (e.g. 30:00 for 30 minutes):"
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        
+        let inputTextField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        inputTextField.placeholderString = "30:00"
+        
+        if case .custom(let totalSecs) = stateMachine.stretchInterval {
+            let m = totalSecs / 60
+            let s = totalSecs % 60
+            inputTextField.stringValue = String(format: "%d:%02d", m, s)
+        }
+        
+        alert.accessoryView = inputTextField
+        
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let text = inputTextField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let parts = text.split(separator: ":")
+            var total = 0
+            if parts.count == 2 {
+                let m = Int(parts[0]) ?? 0
+                let s = Int(parts[1]) ?? 0
+                total = m * 60 + s
+            } else if parts.count == 1 {
+                let val = Int(parts[0]) ?? 0
+                total = val * 60 // Default to minutes if no colon is provided
+            }
+            if total > 0 {
+                stateMachine.stretchInterval = .custom(total)
+            }
         }
     }
 }

@@ -39,10 +39,12 @@ struct SpriteView: View {
             switch state {
             case .dragging:
                 frame = dragFrame
-            case .typing(let activePaw):
-                frame = (activePaw == .left) ? typeLeftFrame : typeRightFrame
+            case .typing:
+                frame = (Int(Date().timeIntervalSince1970 * 8) % 2 == 0) ? typeLeftFrame : typeRightFrame
             case .stretching:
-                frame = stretchFrame
+                frame = stateMachine.wagTick ? stretchWagLeftFrame : stretchWagRightFrame
+            case .stretchReminder:
+                frame = stateMachine.wagTick ? stretchWagLeftFrame : stretchWagRightFrame
             default:
                 frame = baseFrame
             }
@@ -62,12 +64,14 @@ struct SpriteView: View {
             if leftEye.contains(where: { $0.0 == x && $0.1 == y }) { return getPinkPartColor() }
             if rightEye.contains(where: { $0.0 == x && $0.1 == y }) { return getPinkPartColor() }
             if char == "3" && (y >= 7 && y <= 9) { return getFurColor() }
-        } else if case .stretching = state {
+        } else if state == .stretching || state == .stretchReminder {
             let leftEye = [(7,8), (8,7), (9,8)]
             let rightEye = [(16,8), (17,7), (18,8)]
             if leftEye.contains(where: { $0.0 == x && $0.1 == y }) { return .black }
             if rightEye.contains(where: { $0.0 == x && $0.1 == y }) { return .black }
-            if char == "3" && (y >= 7 && y <= 9) { return getStretchColor(y: y) }
+            if char == "3" && (y >= 7 && y <= 9) { 
+                return blendColor(base: .white, target: getStretchColor(y: y), amount: stateMachine.stretchColorAmount) 
+            }
         } else if stateMachine.isHiding {
             let pupilOffset = getPupilOffset()
             let leftEyeX = 14 + pupilOffset.x
@@ -98,11 +102,9 @@ struct SpriteView: View {
         
         switch char {
         case "1":
-            if case .stretching = state { return getStretchColor(y: y) }
-            return getFurColor()
+            return blendColor(base: getFurColor(), target: getStretchColor(y: y), amount: stateMachine.stretchColorAmount)
         case "5":
-            if case .stretching = state { return getStretchColor(y: y) }
-            return getPinkPartColor()
+            return blendColor(base: getPinkPartColor(), target: getStretchColor(y: y), amount: stateMachine.stretchColorAmount)
         case "3":
             return .white
         case "k":
@@ -140,9 +142,30 @@ struct SpriteView: View {
         return Color(red: r, green: g, blue: b)
     }
     
+    func blendColor(base: Color, target: Color, amount: Double) -> Color {
+        guard amount > 0 else { return base }
+        guard amount < 1 else { return target }
+        
+        let nsBase = NSColor(base).usingColorSpace(.sRGB) ?? NSColor(base)
+        let nsTarget = NSColor(target).usingColorSpace(.sRGB) ?? NSColor(target)
+        
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        
+        nsBase.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        nsTarget.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        
+        let amt = CGFloat(amount)
+        let r = r1 + (r2 - r1) * amt
+        let g = g1 + (g2 - g1) * amt
+        let b = b1 + (b2 - b1) * amt
+        
+        return Color(red: Double(r), green: Double(g), blue: Double(b))
+    }
+    
     func getPupilOffset() -> (x: Int, y: Int) {
         switch stateMachine.currentState {
-        case .idle, .looking(.center), .dragging, .petting, .stretching:
+        case .idle, .looking(.center), .dragging, .petting, .stretching, .stretchReminder:
             return (0, 0)
         case .typing:
             return (0, 1) 
@@ -352,6 +375,72 @@ struct SpriteView: View {
         "             311113    11     ",
         "              3113     11     ",
         "               33             ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              "
+    ]
+    
+    let stretchWagRightFrame = [
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "        333      333          ",
+        "       31113    31113         ",
+        "      3111113  3111113        ",
+        "     311111113311111113       ",
+        "    31111111111111111113      ",
+        "    31111111111111111113      ",
+        "   3111333111111333111113     ",
+        "   3111333111111333111113     ",
+        "   3111333111111333111113     ",
+        "   3111111111111111111113     ",
+        "   3111111111111111111113     ",
+        "   3111111111111111111113     ",
+        "    33111111111111111133      ",
+        "      3111111111111113  33    ",
+        "     3111111111111111133113   ",
+        "    31111111111111111113113   ",
+        "   333111111111111111113113   ",
+        "  333 33333333333333333333    ",
+        "  333                         ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              "
+    ]
+
+    let stretchWagLeftFrame = [
+        "                              ",
+        "                              ",
+        "                              ",
+        "                              ",
+        "        333      333          ",
+        "       31113    31113         ",
+        "      3111113  3111113        ",
+        "     311111113311111113       ",
+        "    31111111111111111113      ",
+        "    31111111111111111113      ",
+        "   3111333111111333111113     ",
+        "   3111333111111333111113     ",
+        "   3111333111111333111113     ",
+        "   3111111111111111111113     ",
+        "   3111111111111111111113     ",
+        "   3111111111111111111113     ",
+        "    33111111111111111133      ",
+        "    33  3111111111111113      ",
+        "   3113311111111111111113     ",
+        "   31131111111111111111113    ",
+        "   3113331111111111111111333  ",
+        "   3333 333333333333333333 333",
+        "                           333",
+        "                              ",
+        "                              ",
         "                              ",
         "                              ",
         "                              ",
