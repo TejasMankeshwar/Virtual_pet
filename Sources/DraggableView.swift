@@ -12,7 +12,8 @@ struct DraggableView: NSViewRepresentable {
 
 class DragNSView: NSView {
     var stateMachine: PetStateMachine
-    private var initialMouseLocation: NSPoint = .zero
+    private var initialMouseScreenLocation: NSPoint = .zero
+    private var initialWindowTopLeft: NSPoint = .zero
     
     init(stateMachine: PetStateMachine) {
         self.stateMachine = stateMachine
@@ -27,16 +28,24 @@ class DragNSView: NSView {
     
     override func mouseDown(with event: NSEvent) {
         stateMachine.startDragging()
-        initialMouseLocation = event.locationInWindow
+        initialMouseScreenLocation = NSEvent.mouseLocation
+        if let window = self.window {
+            initialWindowTopLeft = NSPoint(x: window.frame.origin.x, y: window.frame.maxY)
+        }
     }
     
     override func mouseDragged(with event: NSEvent) {
         guard let window = self.window else { return }
         let currentLocation = NSEvent.mouseLocation
         
+        let dx = currentLocation.x - initialMouseScreenLocation.x
+        let dy = currentLocation.y - initialMouseScreenLocation.y
+        
+        let newTopLeft = NSPoint(x: initialWindowTopLeft.x + dx, y: initialWindowTopLeft.y + dy)
+        
         var newOrigin = window.frame.origin
-        newOrigin.x = currentLocation.x - initialMouseLocation.x
-        newOrigin.y = currentLocation.y - initialMouseLocation.y
+        newOrigin.x = newTopLeft.x
+        newOrigin.y = newTopLeft.y - window.frame.height
         
         window.setFrameOrigin(newOrigin)
     }
