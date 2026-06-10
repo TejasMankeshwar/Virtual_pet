@@ -4,12 +4,14 @@ enum PetState: Equatable {
     case idle
     case looking(Direction)
     case dragging
+    case hiding
     case typing(activePaw: PawSide)
     
     public static func == (lhs: PetState, rhs: PetState) -> Bool {
         switch (lhs, rhs) {
         case (.idle, .idle): return true
         case (.dragging, .dragging): return true
+        case (.hiding, .hiding): return true
         case (.typing(let lPaw), .typing(let rPaw)): return lPaw == rPaw
         case (.looking(let lDir), .looking(let rDir)): return lDir == rDir
         default: return false
@@ -36,6 +38,7 @@ class PetStateMachine: ObservableObject {
     private var idleTimer: Timer?
     private var updateTimer: Timer?
     private var lastTypedPaw: PawSide = .right
+    private var lastInteractionTime: Date = Date()
     
     init() {
         updateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -43,11 +46,29 @@ class PetStateMachine: ObservableObject {
         }
     }
     
+    func registerInteraction() {
+        lastInteractionTime = Date()
+    }
+    
+    func wakeUpIfNeeded() {
+        if case .hiding = currentState {
+            // Wake up if we were hiding
+            DispatchQueue.main.async {
+                self.currentState = .idle
+            }
+        }
+    }
+    
     func updateDirection(to newDirection: Direction) {
+        registerInteraction()
+        
         if case .dragging = currentState {
             return
         }
         if case .typing = currentState {
+            return
+        }
+        if case .hiding = currentState {
             return
         }
         
@@ -64,6 +85,8 @@ class PetStateMachine: ObservableObject {
     }
     
     func startDragging() {
+        registerInteraction()
+        wakeUpIfNeeded()
         DispatchQueue.main.async {
             self.currentState = .dragging
             self.typingHeat = 0.0
@@ -80,6 +103,8 @@ class PetStateMachine: ObservableObject {
     }
     
     func registerKeystroke() {
+        registerInteraction()
+        wakeUpIfNeeded()
         let now = Date()
         keystrokes.append(now)
         
@@ -113,20 +138,30 @@ class PetStateMachine: ObservableObject {
                 self.recalculateHeat()
             }
         }
+        
+        // Check for idle hiding
+        if now.timeIntervalSince(lastInteractionTime) > 10.0 {
+            DispatchQueue.main.async {
+                if self.currentState != .hiding && self.currentState != .dragging {
+                    self.currentState = .hiding
+                }
+            }
+        }
     }
     
     private func recalculateHeat() {
         // Average KPS over the 5 second window
         let kps = Double(keystrokes.count) / 5.0
         
-        // 70 WPM is ~5.8 keystrokes per second. 
-        // We start warming up at 2.0 KPS, and reach max heat at 6.0 KPS.
-        if kps < 2.0 {
+        // 50 WPM is ~4.16 keystrokes per second. 
+        // 100 WPM is ~8.33 keystrokes per second.
+        // We start warming up at 4.16 KPS, and reach max heat at 8.33 KPS.
+        if kps < 4.16 {
             typingHeat = 0.0
-        } else if kps >= 6.0 {
+        } else if kps >= 8.33 {
             typingHeat = 1.0
         } else {
-            typingHeat = (kps - 2.0) / 4.0
+            typingHeat = (kps - 4.16) / (8.33 - 4.16)
         }
     }
 }

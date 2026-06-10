@@ -29,6 +29,8 @@ struct SpriteView: View {
             frame = dragFrame
         case .typing(let activePaw):
             frame = (activePaw == .left) ? typeLeftFrame : typeRightFrame
+        case .hiding:
+            frame = peekRightFrame
         default:
             frame = baseFrame
         }
@@ -41,6 +43,18 @@ struct SpriteView: View {
             // Surprised tiny pupils when dragged
             if x == 5 && y == 10 { return .black }
             if x == 18 && y == 10 { return .black }
+        } else if case .hiding = state {
+            let leftEyeX = 14
+            let leftEyeY = 15
+            let rightEyeX = 14
+            let rightEyeY = 5
+            
+            if (x == leftEyeX || x == leftEyeX + 1) && (y == leftEyeY || y == leftEyeY + 1) {
+                return .black
+            }
+            if (x == rightEyeX || x == rightEyeX + 1) && (y == rightEyeY || y == rightEyeY + 1) {
+                return .black
+            }
         } else {
             let pupilOffset = getPupilOffset()
             let leftEyeX = 4 + pupilOffset.x
@@ -93,9 +107,7 @@ struct SpriteView: View {
     
     func getPupilOffset() -> (x: Int, y: Int) {
         switch stateMachine.currentState {
-        case .idle, .looking(.center):
-            return (0, 0)
-        case .dragging:
+        case .idle, .looking(.center), .dragging, .hiding:
             return (0, 0)
         case .typing:
             return (0, 3) // Look down at keys, offset for "gamer lean"
@@ -218,6 +230,33 @@ struct SpriteView: View {
         " 333                333 ",
         " 333                333 ",
         "                        ",
+        "                        ",
+        "                        "
+    ]
+    
+    let peekRightFrame = [
+        "            0 0         ",
+        "            0 0         ",
+        "           01010        ",
+        "          011111000     ",
+        "         01133331110000 ",
+        "        0111333311111110",
+        "        0111333315111110",
+        "         011333311111110",
+        "          0111111111110 ",
+        "          011111111110  ",
+        "          011511111110  ",
+        "          011511111110  ",
+        "          011111111110  ",
+        "          0111111111110 ",
+        "         011333311111110",
+        "        0111333315111110",
+        "        0111333311111110",
+        "         011333311100000",
+        "          011111000 0110",
+        "           01010   01110",
+        "            0 0    0110 ",
+        "            0 0     00  ",
         "                        ",
         "                        "
     ]
