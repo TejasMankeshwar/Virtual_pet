@@ -6,18 +6,27 @@ struct SpriteView: View {
     let pixelSize: CGFloat = 4.0
     
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(0..<30, id: \.self) { y in
-                HStack(spacing: 0) {
-                    ForEach(0..<30, id: \.self) { x in
-                        Rectangle()
-                            .fill(colorFor(x: x, y: y))
-                            .frame(width: pixelSize, height: pixelSize)
+        ZStack(alignment: .bottom) {
+            if stateMachine.typingHeat >= 0.9 {
+                SteamView()
+                    .offset(y: -100)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.2), value: stateMachine.typingHeat >= 0.9)
+            }
+            
+            VStack(spacing: 0) {
+                ForEach(0..<30, id: \.self) { y in
+                    HStack(spacing: 0) {
+                        ForEach(0..<30, id: \.self) { x in
+                            Rectangle()
+                                .fill(colorFor(x: x, y: y))
+                                .frame(width: pixelSize, height: pixelSize)
+                        }
                     }
                 }
             }
+            .frame(width: 30 * pixelSize, height: 30 * pixelSize)
         }
-        .frame(width: 30 * pixelSize, height: 30 * pixelSize)
     }
     
     func colorFor(x: Int, y: Int) -> Color {
@@ -349,4 +358,41 @@ struct SpriteView: View {
         "                              ",
         "                              "
     ]
+}
+
+struct SteamLine: View {
+    @State private var isAnimating = false
+    let xOffset: CGFloat
+    let height: CGFloat
+    let delay: Double
+    let duration: Double
+    
+    var body: some View {
+        Rectangle()
+            .fill(Color.white)
+            .frame(width: 4, height: height)
+            .opacity(isAnimating ? 0.0 : 0.8)
+            .offset(x: xOffset, y: isAnimating ? -30 : 0)
+            .animation(
+                Animation.linear(duration: duration)
+                    .repeatForever(autoreverses: false)
+                    .delay(delay),
+                value: isAnimating
+            )
+            .onAppear {
+                isAnimating = true
+            }
+    }
+}
+
+struct SteamView: View {
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            SteamLine(xOffset: -20, height: 12, delay: 0.0, duration: 1.0)
+            SteamLine(xOffset: -10, height: 16, delay: 0.4, duration: 1.2)
+            SteamLine(xOffset: 0,  height: 10, delay: 0.2, duration: 0.9)
+            SteamLine(xOffset: 10, height: 14, delay: 0.6, duration: 1.1)
+            SteamLine(xOffset: 20, height: 8,  delay: 0.8, duration: 1.0)
+        }
+    }
 }
