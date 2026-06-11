@@ -86,6 +86,15 @@ struct MainContentView: View {
                 }
             }
             Divider()
+            Button("Set Water Reminder...") {
+                promptForWaterReminder()
+            }
+            if stateMachine.waterInterval != .off {
+                Button("Turn Off Water Reminder") {
+                    stateMachine.waterInterval = .off
+                }
+            }
+            Divider()
             if stateMachine.isPomodoroActive {
                 Button("Stop Pomodoro Timer") {
                     stateMachine.stopPomodoro()
@@ -160,6 +169,44 @@ struct MainContentView: View {
             }
             if total > 0 {
                 stateMachine.stretchInterval = .custom(total)
+            }
+        }
+    }
+    
+    func promptForWaterReminder() {
+        let alert = NSAlert()
+        alert.messageText = "Set Water Reminder"
+        alert.informativeText = "Enter interval in MM:SS format (e.g. 60:00 for 1 hour):"
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        
+        let inputTextField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        inputTextField.placeholderString = "60:00"
+        
+        if case .custom(let totalSecs) = stateMachine.waterInterval {
+            let m = totalSecs / 60
+            let s = totalSecs % 60
+            inputTextField.stringValue = String(format: "%d:%02d", m, s)
+        }
+        
+        alert.accessoryView = inputTextField
+        
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let text = inputTextField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let parts = text.split(separator: ":")
+            var total = 0
+            if parts.count == 2 {
+                let m = Int(parts[0]) ?? 0
+                let s = Int(parts[1]) ?? 0
+                total = m * 60 + s
+            } else if parts.count == 1 {
+                let val = Int(parts[0]) ?? 0
+                total = val * 60 // Default to minutes if no colon is provided
+            }
+            if total > 0 {
+                stateMachine.waterInterval = .custom(total)
             }
         }
     }

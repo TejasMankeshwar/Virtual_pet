@@ -102,9 +102,11 @@ struct SpriteView: View {
         
         switch char {
         case "1":
-            return blendColor(base: getFurColor(), target: getStretchColor(y: y), amount: stateMachine.stretchColorAmount)
+            let c = blendColor(base: getFurColor(), target: getStretchColor(y: y), amount: stateMachine.stretchColorAmount)
+            return blendColor(base: c, target: getWaterColor(y: y), amount: stateMachine.waterColorAmount)
         case "5":
-            return blendColor(base: getPinkPartColor(), target: getStretchColor(y: y), amount: stateMachine.stretchColorAmount)
+            let c = blendColor(base: getPinkPartColor(), target: getStretchColor(y: y), amount: stateMachine.stretchColorAmount)
+            return blendColor(base: c, target: getWaterColor(y: y), amount: stateMachine.waterColorAmount)
         case "3":
             return .white
         case "k":
@@ -142,6 +144,14 @@ struct SpriteView: View {
         return Color(red: r, green: g, blue: b)
     }
     
+    func getWaterColor(y: Int) -> Color {
+        let ratio = Double(y) / 29.0
+        let r = 0.0
+        let g = 0.5 * ratio
+        let b = 0.5 + 0.5 * ratio
+        return Color(red: r, green: g, blue: b)
+    }
+    
     func blendColor(base: Color, target: Color, amount: Double) -> Color {
         guard amount > 0 else { return base }
         guard amount < 1 else { return target }
@@ -165,7 +175,7 @@ struct SpriteView: View {
     
     func getPupilOffset() -> (x: Int, y: Int) {
         switch stateMachine.currentState {
-        case .idle, .looking(.center), .dragging, .petting, .stretching, .stretchReminder:
+        case .idle, .looking(.center), .dragging, .petting, .stretching, .stretchReminder, .waterReminder:
             return (0, 0)
         case .typing:
             return (0, 1) 

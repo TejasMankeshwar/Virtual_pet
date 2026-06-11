@@ -9,9 +9,22 @@ enum PetState: Equatable {
     case petting
     case stretching
     case stretchReminder
+    case waterReminder
 }
 
 enum StretchInterval: Equatable {
+    case off
+    case custom(Int)
+    
+    var rawValue: Int {
+        switch self {
+        case .off: return 0
+        case .custom(let secs): return secs
+        }
+    }
+}
+
+enum WaterInterval: Equatable {
     case off
     case custom(Int)
     
@@ -35,11 +48,19 @@ enum Direction {
 class PetStateMachine: ObservableObject {
     @Published var currentState: PetState = .idle {
         didSet {
-            let isStretching = (currentState == .stretching || currentState == .stretchReminder)
-            let wasStretching = (oldValue == .stretching || oldValue == .stretchReminder)
+            let isStretching = (currentState == .stretchReminder)
+            let wasStretching = (oldValue == .stretchReminder)
             if isStretching != wasStretching {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     stretchColorAmount = isStretching ? 1.0 : 0.0
+                }
+            }
+            
+            let isWatering = (currentState == .waterReminder)
+            let wasWatering = (oldValue == .waterReminder)
+            if isWatering != wasWatering {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    waterColorAmount = isWatering ? 1.0 : 0.0
                 }
             }
         }
@@ -49,6 +70,7 @@ class PetStateMachine: ObservableObject {
     @Published var typingHeat: Double = 0.0 // 0.0 to 1.0
     
     @Published var stretchColorAmount: Double = 0.0
+    @Published var waterColorAmount: Double = 0.0
     @Published var wagTick: Bool = false
     @Published var lastTypedPaw: PawSide = .left
     
@@ -57,6 +79,9 @@ class PetStateMachine: ObservableObject {
     
     private var savedPurrMessage: String = ""
     private var savedShowPurrMessage: Bool = false
+    
+    private var savedPurrMessageForWater: String = ""
+    private var savedShowPurrMessageForWater: Bool = false
     
     @Published var isPomodoroActive: Bool = false
     @Published var pomodoroTimeRemaining: Int = 0
@@ -68,6 +93,13 @@ class PetStateMachine: ObservableObject {
         }
     }
     @Published var timeUntilStretch: Int = 0
+
+    @Published var waterInterval: WaterInterval = .off {
+        didSet {
+            resetWaterTimer()
+        }
+    }
+    @Published var timeUntilWater: Int = 0
 
     private var lastDirectionChange: Date = Date()
     private let debounceInterval: TimeInterval = 0.05
@@ -90,6 +122,7 @@ class PetStateMachine: ObservableObject {
             self.updateTypingHeat()
             self.updatePomodoro()
             self.updateStretchReminder()
+            self.updateWaterReminder()
             
             // Random interactions roughly every 5 seconds
             if Int.random(in: 1...5) == 1 {
@@ -146,7 +179,7 @@ class PetStateMachine: ObservableObject {
         if isHiding {
             DispatchQueue.main.async {
                 self.isHiding = false
-                if self.currentState != .stretchReminder {
+                if self.currentState != .stretchReminder && self.currentState != .waterReminder {
                     self.currentState = .idle
                 }
             }
@@ -211,6 +244,41 @@ class PetStateMachine: ObservableObject {
             resetStretchTimer()
         }
     }
+
+    private func updateWaterReminder() {
+        if waterInterval == .off { return }
+        
+        if timeUntilWater > 0 {
+            timeUntilWater -= 1
+        } else {
+            if currentState != .waterReminder {
+                savedPurrMessageForWater = purrMessage
+                savedShowPurrMessageForWater = showPurrMessage
+                self.wakeUpIfNeeded()
+                currentState = .waterReminder
+                purrMessage = "Drink Water!"
+                showPurrMessage = true
+            }
+        }
+    }
+    
+    func resetWaterTimer() {
+        let wasWaterReminder = (currentState == .waterReminder)
+        DispatchQueue.main.async {
+            self.timeUntilWater = self.waterInterval.rawValue
+            if wasWaterReminder {
+                self.currentState = .idle
+                self.purrMessage = self.savedPurrMessageForWater
+                self.showPurrMessage = self.savedShowPurrMessageForWater
+            }
+        }
+    }
+    
+    func acknowledgeWater() {
+        if currentState == .waterReminder {
+            resetWaterTimer()
+        }
+    }
     
     private func updateIdleState() {
         // Only trigger random states if we are currently idle and not blipping or hiding
@@ -235,6 +303,7 @@ class PetStateMachine: ObservableObject {
         if case .petting = currentState { return }
         if case .stretching = currentState { return }
         if case .stretchReminder = currentState { return }
+        if case .waterReminder = currentState { return }
         
         let now = Date()
         if now.timeIntervalSince(lastDirectionChange) > debounceInterval {
@@ -293,7 +362,7 @@ class PetStateMachine: ObservableObject {
         // Check for idle hiding
         if now.timeIntervalSince(lastInteractionTime) > 15.0 {
             DispatchQueue.main.async {
-                if !self.isHiding && self.currentState != .dragging && self.currentState != .stretchReminder {
+                if !self.isHiding && self.currentState != .dragging && self.currentState != .stretchReminder && self.currentState != .waterReminder {
                     self.isHiding = true
                 }
             }
@@ -324,7 +393,7 @@ class PetStateMachine: ObservableObject {
     
     private func updateTypingState() {
         if isCurrentlyTyping {
-            if currentState != .stretchReminder && currentState != .dragging && currentState != .petting {
+            if currentState != .stretchReminder && currentState != .waterReminder && currentState != .dragging && currentState != .petting {
                 currentState = .typing(heat: typingHeat)
             }
         } else {
