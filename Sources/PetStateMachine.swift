@@ -74,8 +74,20 @@ class PetStateMachine: ObservableObject {
     @Published var wagTick: Bool = false
     @Published var lastTypedPaw: PawSide = .left
     
-    @Published var purrMessage: String = ""
-    @Published var showPurrMessage: Bool = false
+    @Published var purrMessage: String = "" {
+        didSet {
+            if currentState != .stretchReminder && currentState != .waterReminder {
+                UserDefaults.standard.set(purrMessage, forKey: "userPurrMessage")
+            }
+        }
+    }
+    @Published var showPurrMessage: Bool = false {
+        didSet {
+            if currentState != .stretchReminder && currentState != .waterReminder {
+                UserDefaults.standard.set(showPurrMessage, forKey: "userShowPurrMessage")
+            }
+        }
+    }
     
     private var savedPurrMessage: String = ""
     private var savedShowPurrMessage: Bool = false
@@ -89,6 +101,7 @@ class PetStateMachine: ObservableObject {
     
     @Published var stretchInterval: StretchInterval = .off {
         didSet {
+            UserDefaults.standard.set(stretchInterval.rawValue, forKey: "stretchInterval")
             resetStretchTimer()
         }
     }
@@ -96,6 +109,7 @@ class PetStateMachine: ObservableObject {
 
     @Published var waterInterval: WaterInterval = .off {
         didSet {
+            UserDefaults.standard.set(waterInterval.rawValue, forKey: "waterInterval")
             resetWaterTimer()
         }
     }
@@ -117,6 +131,30 @@ class PetStateMachine: ObservableObject {
     private var wagTimer: Timer?
     
     init() {
+        let defaults = UserDefaults.standard
+        
+        if let savedPurr = defaults.string(forKey: "userPurrMessage") {
+            self.purrMessage = savedPurr
+            self.showPurrMessage = defaults.bool(forKey: "userShowPurrMessage")
+        }
+        
+        if defaults.object(forKey: "waterInterval") == nil {
+            self.waterInterval = .custom(60 * 60)
+        } else {
+            let val = defaults.integer(forKey: "waterInterval")
+            self.waterInterval = val == 0 ? .off : .custom(val)
+        }
+        
+        if defaults.object(forKey: "stretchInterval") == nil {
+            self.stretchInterval = .custom(45 * 60)
+        } else {
+            let val = defaults.integer(forKey: "stretchInterval")
+            self.stretchInterval = val == 0 ? .off : .custom(val)
+        }
+
+        self.timeUntilWater = self.waterInterval.rawValue
+        self.timeUntilStretch = self.stretchInterval.rawValue
+
         stateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.updateTypingHeat()
