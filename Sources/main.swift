@@ -70,8 +70,8 @@ struct MainContentView: View {
         }
         .frame(width: 120, height: 160)
         .contextMenu {
-            Button(stateMachine.showPurrMessage ? "Hide Purr Message" : "Show Purr Message") {
-                stateMachine.showPurrMessage.toggle()
+            Button(stateMachine.baseShowPurrMessage ? "Hide Purr Message" : "Show Purr Message") {
+                stateMachine.baseShowPurrMessage.toggle()
             }
             Button("Set Purr Message...") {
                 promptForPurrMessage()
@@ -123,15 +123,15 @@ struct MainContentView: View {
         alert.addButton(withTitle: "Cancel")
         
         let inputTextField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        inputTextField.stringValue = stateMachine.purrMessage
+        inputTextField.stringValue = stateMachine.basePurrMessage
         alert.accessoryView = inputTextField
         
         NSApp.activate(ignoringOtherApps: true)
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             let text = inputTextField.stringValue
-            stateMachine.purrMessage = String(text.prefix(20))
-            stateMachine.showPurrMessage = true
+            stateMachine.basePurrMessage = String(text.prefix(20))
+            stateMachine.baseShowPurrMessage = true
         }
     }
     
@@ -252,6 +252,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if hiding {
                     self.blipTeleport(toRight: true)
                 } else {
+                    if self.stateMachine.currentState == .dragging { return }
                     // Check if it's clinging to the right edge and pull it back
                     if let screen = self.panel.screen ?? NSScreen.main {
                         if self.panel.frame.origin.x >= screen.visibleFrame.maxX - 25 {

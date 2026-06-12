@@ -74,26 +74,25 @@ class PetStateMachine: ObservableObject {
     @Published var wagTick: Bool = false
     @Published var lastTypedPaw: PawSide = .left
     
-    @Published var purrMessage: String = "" {
+    @Published var basePurrMessage: String = "" {
         didSet {
+            UserDefaults.standard.set(basePurrMessage, forKey: "userPurrMessage")
             if currentState != .stretchReminder && currentState != .waterReminder {
-                UserDefaults.standard.set(purrMessage, forKey: "userPurrMessage")
+                purrMessage = basePurrMessage
             }
         }
     }
-    @Published var showPurrMessage: Bool = false {
+    @Published var baseShowPurrMessage: Bool = false {
         didSet {
+            UserDefaults.standard.set(baseShowPurrMessage, forKey: "userShowPurrMessage")
             if currentState != .stretchReminder && currentState != .waterReminder {
-                UserDefaults.standard.set(showPurrMessage, forKey: "userShowPurrMessage")
+                showPurrMessage = baseShowPurrMessage
             }
         }
     }
     
-    private var savedPurrMessage: String = ""
-    private var savedShowPurrMessage: Bool = false
-    
-    private var savedPurrMessageForWater: String = ""
-    private var savedShowPurrMessageForWater: Bool = false
+    @Published var purrMessage: String = ""
+    @Published var showPurrMessage: Bool = false
     
     @Published var isPomodoroActive: Bool = false
     @Published var pomodoroTimeRemaining: Int = 0
@@ -134,8 +133,10 @@ class PetStateMachine: ObservableObject {
         let defaults = UserDefaults.standard
         
         if let savedPurr = defaults.string(forKey: "userPurrMessage") {
-            self.purrMessage = savedPurr
-            self.showPurrMessage = defaults.bool(forKey: "userShowPurrMessage")
+            self.basePurrMessage = savedPurr
+            self.baseShowPurrMessage = defaults.bool(forKey: "userShowPurrMessage")
+            self.purrMessage = self.basePurrMessage
+            self.showPurrMessage = self.baseShowPurrMessage
         }
         
         if defaults.object(forKey: "waterInterval") == nil {
@@ -255,8 +256,6 @@ class PetStateMachine: ObservableObject {
             timeUntilStretch -= 1
         } else {
             if currentState != .stretchReminder {
-                savedPurrMessage = purrMessage
-                savedShowPurrMessage = showPurrMessage
                 self.wakeUpIfNeeded()
                 currentState = .stretchReminder
                 purrMessage = "Time to stretch! 🐾"
@@ -271,8 +270,8 @@ class PetStateMachine: ObservableObject {
             self.timeUntilStretch = self.stretchInterval.rawValue
             if wasStretchReminder {
                 self.currentState = .idle
-                self.purrMessage = self.savedPurrMessage
-                self.showPurrMessage = self.savedShowPurrMessage
+                self.purrMessage = self.basePurrMessage
+                self.showPurrMessage = self.baseShowPurrMessage
             }
         }
     }
@@ -290,8 +289,6 @@ class PetStateMachine: ObservableObject {
             timeUntilWater -= 1
         } else {
             if currentState != .waterReminder {
-                savedPurrMessageForWater = purrMessage
-                savedShowPurrMessageForWater = showPurrMessage
                 self.wakeUpIfNeeded()
                 currentState = .waterReminder
                 purrMessage = "Drink Water!"
@@ -306,8 +303,8 @@ class PetStateMachine: ObservableObject {
             self.timeUntilWater = self.waterInterval.rawValue
             if wasWaterReminder {
                 self.currentState = .idle
-                self.purrMessage = self.savedPurrMessageForWater
-                self.showPurrMessage = self.savedShowPurrMessageForWater
+                self.purrMessage = self.basePurrMessage
+                self.showPurrMessage = self.baseShowPurrMessage
             }
         }
     }
@@ -356,6 +353,7 @@ class PetStateMachine: ObservableObject {
         registerInteraction()
         DispatchQueue.main.async {
             self.currentState = .dragging
+            self.isHiding = false
             self.typingHeat = 0.0
         }
     }
