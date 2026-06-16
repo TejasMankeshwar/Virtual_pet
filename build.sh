@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_NAME="Comnyang"
+APP_NAME="mewtoo"
 APP_BUNDLE="$APP_NAME.app"
 MACOS_DIR="$APP_BUNDLE/Contents/MacOS"
 RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"

@@ -1,0 +1,5 @@
+.DS_Store
+*.app/
+*.dmg
+dmg_build/
+scratch/TestSuite

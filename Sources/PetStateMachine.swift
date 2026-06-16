@@ -10,6 +10,19 @@ enum PetState: Equatable {
     case stretching
     case stretchReminder
     case waterReminder
+    
+    var priority: Int {
+        switch self {
+        case .dragging: return 100
+        case .stretchReminder: return 90
+        case .waterReminder: return 80
+        case .petting: return 70
+        case .typing: return 60
+        case .looking: return 50
+        case .stretching: return 40
+        case .idle: return 0
+        }
+    }
 }
 
 enum StretchInterval: Equatable {
@@ -178,6 +191,15 @@ class PetStateMachine: ObservableObject {
         lastInteractionTime = Date()
     }
     
+    @discardableResult
+    func transition(to newState: PetState, force: Bool = false) -> Bool {
+        if force || newState.priority >= currentState.priority {
+            self.currentState = newState
+            return true
+        }
+        return false
+    }
+    
     func registerPetting(delta: CGFloat) {
         registerInteraction()
         
@@ -197,10 +219,7 @@ class PetStateMachine: ObservableObject {
         if let startTime = pettingStartTime, Date().timeIntervalSince(startTime) >= 1.2 {
             if pettingAccumulator > 30 {
                 DispatchQueue.main.async {
-                    if self.currentState != .dragging && self.currentState != .petting {
-                        if case .typing = self.currentState { return }
-                        self.currentState = .petting
-                    }
+                    self.transition(to: .petting)
                 }
             }
         }
@@ -210,7 +229,7 @@ class PetStateMachine: ObservableObject {
         pettingAccumulator = 0
         pettingStartTime = nil
         if case .petting = currentState {
-            currentState = .idle
+            self.transition(to: .idle, force: true)
         }
     }
     
@@ -255,9 +274,8 @@ class PetStateMachine: ObservableObject {
         if timeUntilStretch > 0 {
             timeUntilStretch -= 1
         } else {
-            if currentState != .stretchReminder {
+            if self.transition(to: .stretchReminder) {
                 self.wakeUpIfNeeded()
-                currentState = .stretchReminder
                 purrMessage = "Time to stretch! 🐾"
                 showPurrMessage = true
             }
@@ -269,7 +287,9 @@ class PetStateMachine: ObservableObject {
         DispatchQueue.main.async {
             self.timeUntilStretch = self.stretchInterval.rawValue
             if wasStretchReminder {
-                self.currentState = .idle
+                if self.currentState == .stretchReminder {
+                    self.transition(to: .idle, force: true)
+                }
                 self.purrMessage = self.basePurrMessage
                 self.showPurrMessage = self.baseShowPurrMessage
             }
@@ -288,9 +308,8 @@ class PetStateMachine: ObservableObject {
         if timeUntilWater > 0 {
             timeUntilWater -= 1
         } else {
-            if currentState != .waterReminder {
+            if self.transition(to: .waterReminder) {
                 self.wakeUpIfNeeded()
-                currentState = .waterReminder
                 purrMessage = "Drink Water!"
                 showPurrMessage = true
             }
@@ -302,7 +321,9 @@ class PetStateMachine: ObservableObject {
         DispatchQueue.main.async {
             self.timeUntilWater = self.waterInterval.rawValue
             if wasWaterReminder {
-                self.currentState = .idle
+                if self.currentState == .waterReminder {
+                    self.transition(to: .idle, force: true)
+                }
                 self.purrMessage = self.basePurrMessage
                 self.showPurrMessage = self.baseShowPurrMessage
             }
@@ -315,16 +336,24 @@ class PetStateMachine: ObservableObject {
         }
     }
     
+    func acknowledgePomodoro() {
+        if purrMessage == "Pomodoro Done! 🐾" {
+            purrMessage = basePurrMessage
+            showPurrMessage = baseShowPurrMessage
+        }
+    }
+    
     private func updateIdleState() {
         // Only trigger random states if we are currently idle and not blipping or hiding
         guard case .idle = currentState, !isHiding, !isBlipping else { return }
         
         // Very low chance to do a random stretch
         if Double.random(in: 0...1) < 0.05 {
-            currentState = .stretching
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                if case .stretching = self.currentState {
-                    self.currentState = .idle
+            if self.transition(to: .stretching) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    if case .stretching = self.currentState {
+                        self.transition(to: .idle, force: true)
+                    }
                 }
             }
         }
@@ -333,18 +362,12 @@ class PetStateMachine: ObservableObject {
     func updateDirection(to newDirection: Direction) {
         registerInteraction()
         
-        if case .dragging = currentState { return }
-        if case .typing = currentState { return }
-        if case .petting = currentState { return }
-        if case .stretching = currentState { return }
-        if case .stretchReminder = currentState { return }
-        if case .waterReminder = currentState { return }
-        
         let now = Date()
         if now.timeIntervalSince(lastDirectionChange) > debounceInterval {
             DispatchQueue.main.async {
-                self.currentState = .looking(newDirection)
-                self.lastDirectionChange = now
+                if self.transition(to: .looking(newDirection)) {
+                    self.lastDirectionChange = now
+                }
             }
         }
     }
@@ -352,7 +375,7 @@ class PetStateMachine: ObservableObject {
     func startDragging() {
         registerInteraction()
         DispatchQueue.main.async {
-            self.currentState = .dragging
+            self.transition(to: .dragging, force: true)
             self.isHiding = false
             self.typingHeat = 0.0
         }
@@ -361,7 +384,7 @@ class PetStateMachine: ObservableObject {
     func stopDragging() {
         DispatchQueue.main.async {
             if case .dragging = self.currentState {
-                self.currentState = .idle
+                self.transition(to: .idle, force: true)
             }
         }
     }
@@ -429,12 +452,10 @@ class PetStateMachine: ObservableObject {
     
     private func updateTypingState() {
         if isCurrentlyTyping {
-            if currentState != .stretchReminder && currentState != .waterReminder && currentState != .dragging && currentState != .petting {
-                currentState = .typing(heat: typingHeat)
-            }
+            self.transition(to: .typing(heat: typingHeat))
         } else {
             if case .typing = currentState {
-                currentState = .idle
+                self.transition(to: .idle, force: true)
             }
         }
     }

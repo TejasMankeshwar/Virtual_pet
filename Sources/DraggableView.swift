@@ -30,6 +30,7 @@ class DragNSView: NSView {
         stateMachine.startDragging()
         stateMachine.acknowledgeStretch()
         stateMachine.acknowledgeWater()
+        stateMachine.acknowledgePomodoro()
         initialMouseScreenLocation = NSEvent.mouseLocation
         if let window = self.window {
             initialWindowTopLeft = NSPoint(x: window.frame.origin.x, y: window.frame.maxY)
