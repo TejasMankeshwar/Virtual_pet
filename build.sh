@@ -23,6 +23,8 @@ fi
 swiftc -o "$MACOS_DIR/$APP_NAME" Sources/*.swift -target arm64-apple-macos13.0
 
 if [ $? -eq 0 ]; then
+    echo "Applying ad-hoc signature to the bundle..."
+    codesign --force --deep -s - "$APP_BUNDLE"
     echo "Build successful! App bundle created at $APP_BUNDLE"
 else
     echo "Build failed!"
